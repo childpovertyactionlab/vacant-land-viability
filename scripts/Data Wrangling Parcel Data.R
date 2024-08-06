@@ -376,6 +376,6 @@ vacant_points <- st_transform(vacant_points, crs = 4269)
 
 # write vacant_sf into its own data file 
 
-st_write(vacant_points, "Data/Processed Data/Processed Vacant Land Parcels.geojson", delete_dsn = TRUE)
+#st_write(vacant_points, "Data/Processed Data/Processed Vacant Land Parcels.geojson", delete_dsn = TRUE)
 
 

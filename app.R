@@ -24,13 +24,17 @@ features_final <- st_read("data/Processed Data/Processed Vacant Land Parcels wit
 
 ##### Theme #####
 title <- tags$a(#href="https://www.google.com",
-  tags$img(src = "www/images/CPAL_Logo_White.png",
-           height = "50"),
-  strong("Dallas County Vacant Lots"))
+  div(
+    tags$img(src = "images/CPAL_Logo_White.png",
+             height = "30", style = "vertical-align: middle; margin-right: 40px;"), # Add margin to the right of the image
+    strong("Dallas County Vacant Lots", style = "font-weight: bold; vertical-align: middle;"), # Ensure text is bold
+    style = "display: flex; align-items: center;" # Use flexbox to align items centrally
+  )
+)
 
 # Define UI
 ui <- navbarPage(
-  title = title,
+  title = span(title, style = "display: inline-block;"), # Ensure title is inline to allow other elements next to it
   theme = cpaltemplates::cpal_shiny(),
   
   tags$style(HTML("
