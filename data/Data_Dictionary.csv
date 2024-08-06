@@ -1,0 +1,28 @@
+Field Name,Description
+GIS_PARCEL_ID,GIS Parcel ID
+DIVISION_CD,RES = Residential COM = Commercial BPP = Business Personal Property 
+ACCOUNT_NUM,The DCAD Account number
+OWNER_NAME1,The owner name
+STREET_NUM,"Property address info, street number"
+FULL_STREET_NAME,"Property address info, street name"
+BLDG_ID,"Property address info, building number"
+UNIT_ID,"Property address info, unit number"
+PROPERTY_CITY,"Property address info, city"
+PROPERTY_ZIPCODE,"Property address info, zipcode"
+SPTD_CODE,The primary State Property Tax Division parcel type classfication
+PUBLIC_ACCOUNT,TRUE = Publicly owned land
+FBO_ACCOUNT,TRUE = Faith based owner
+tract_ID,Census Tract ID
+tract_name,Census Tract Name
+COUNCIL,Dallas City Council District
+COUNCILPER,City Council member that represents this parcel
+area,Area size of vacant lot in square miles
+School_Flag,TRUE = School within a quarter mile
+Grocery_Flag,TRUE = Grocery  Store within a quarter mile
+Park_Flag,TRUE = Park within a quarter mile
+Clinic_Flag,TRUE = Clinic within a quarter mile
+Library_Flag,TRUE = Library within a quarter mile
+ENV_HAZ_Flag,TRUE = Environmental Hazard within an eigth mile
+Rec_Center_Flag,TRUE = Rec Center within a quarter mile
+Transit_Flag,TRUE = Public transportation within a quarter mile
+tier,Opportunity level of vacant land
