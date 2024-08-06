@@ -328,14 +328,14 @@ server <- function(input, output, session) {
       # Determine owner type and initialize features list
       owner_type <- ifelse(data$FBO_ACCOUNT, "<b>This vacant lot has a faith based owner,</b>", "<b>This lot is publicly owned,</b>")
       features <- c()
-      if (data$School_Flag == TRUE) features <- c(features, "schools")
-      if (data$Grocery_Flag == TRUE) features <- c(features, "grocery stores")
-      if (data$Transit_Flag == TRUE) features <- c(features, "public transportation")
-      if (data$Clinic_Flag == TRUE) features <- c(features, "clinics")
-      if (data$Park_Flag == TRUE) features <- c(features, "parks")
-      if (data$Rec_Center_Flag == TRUE) features <- c(features, "rec centers")
-      if (data$Library_Flag == TRUE) features <- c(features, "libraries")
-      if (data$ENV_HAZ_Flag == TRUE) features <- c(features, "environmental hazards")
+      if (data$School_Flag == TRUE) features <- c(features, "Schools")
+      if (data$Grocery_Flag == TRUE) features <- c(features, "Grocery stores")
+      if (data$Transit_Flag == TRUE) features <- c(features, "Public transportation")
+      if (data$Clinic_Flag == TRUE) features <- c(features, "Clinics")
+      if (data$Park_Flag == TRUE) features <- c(features, "Parks")
+      if (data$Rec_Center_Flag == TRUE) features <- c(features, "Rec centers")
+      if (data$Library_Flag == TRUE) features <- c(features, "Libraries")
+      if (data$ENV_HAZ_Flag == TRUE) features <- c(features, "Environmental hazards")
       
       # Combine owner type and features in a single sentence
       if (length(features) > 0) {

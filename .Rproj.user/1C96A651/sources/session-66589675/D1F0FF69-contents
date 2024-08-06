@@ -24,13 +24,17 @@ features_final <- st_read("data/Processed Data/Processed Vacant Land Parcels wit
 
 ##### Theme #####
 title <- tags$a(#href="https://www.google.com",
-  tags$img(src = "www/images/CPAL_Logo_White.png",
-           height = "50"),
-  strong("Dallas County Vacant Lots"))
+  div(
+    tags$img(src = "images/CPAL_Logo_White.png",
+             height = "30", style = "vertical-align: middle; margin-right: 40px;"), # Add margin to the right of the image
+    strong("Dallas County Vacant Lots", style = "font-weight: bold; vertical-align: middle;"), # Ensure text is bold
+    style = "display: flex; align-items: center;" # Use flexbox to align items centrally
+  )
+)
 
 # Define UI
 ui <- navbarPage(
-  title = title,
+  title = span(title, style = "display: inline-block;"), # Ensure title is inline to allow other elements next to it
   theme = cpaltemplates::cpal_shiny(),
   
   tags$style(HTML("
@@ -324,14 +328,14 @@ server <- function(input, output, session) {
       # Determine owner type and initialize features list
       owner_type <- ifelse(data$FBO_ACCOUNT, "<b>This vacant lot has a faith based owner,</b>", "<b>This lot is publicly owned,</b>")
       features <- c()
-      if (data$School_Flag == TRUE) features <- c(features, "schools")
-      if (data$Grocery_Flag == TRUE) features <- c(features, "grocery stores")
-      if (data$Transit_Flag == TRUE) features <- c(features, "public transportation")
-      if (data$Clinic_Flag == TRUE) features <- c(features, "clinics")
-      if (data$Park_Flag == TRUE) features <- c(features, "parks")
-      if (data$Rec_Center_Flag == TRUE) features <- c(features, "rec centers")
-      if (data$Library_Flag == TRUE) features <- c(features, "libraries")
-      if (data$ENV_HAZ_Flag == TRUE) features <- c(features, "environmental hazards")
+      if (data$School_Flag == TRUE) features <- c(features, "Schools")
+      if (data$Grocery_Flag == TRUE) features <- c(features, "Grocery stores")
+      if (data$Transit_Flag == TRUE) features <- c(features, "Public transportation")
+      if (data$Clinic_Flag == TRUE) features <- c(features, "Clinics")
+      if (data$Park_Flag == TRUE) features <- c(features, "Parks")
+      if (data$Rec_Center_Flag == TRUE) features <- c(features, "Rec centers")
+      if (data$Library_Flag == TRUE) features <- c(features, "Libraries")
+      if (data$ENV_HAZ_Flag == TRUE) features <- c(features, "Environmental hazards")
       
       # Combine owner type and features in a single sentence
       if (length(features) > 0) {
