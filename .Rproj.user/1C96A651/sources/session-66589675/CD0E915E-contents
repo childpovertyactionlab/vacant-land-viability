@@ -1,0 +1,429 @@
+library(dplyr)
+library(readr)
+library(sf)
+library(stringr)
+library(tigris)
+library(leaflet)
+library(shiny)
+## set working directory
+setwd("C:/Users/theny/Documents/CPAL Summer 2024/Vacant Land Project")
+## load data 
+ACCOUNT_APPRL_YEAR <- read_csv("Data/ACCOUNT_APPRL_YEAR.CSV")
+ACCOUNT_INFO <- read_csv("Data/ACCOUNT_INFO.CSV")
+LAND <- read_csv("Data/LAND.CSV")
+parcels <- st_read('Data/PARCEL/PARCEL.shp') %>% 
+  rename(GIS_PARCEL_ID = Acct) %>%
+  select(GIS_PARCEL_ID, geometry) %>%
+  distinct(GIS_PARCEL_ID, .keep_all = TRUE)
+dallas_county <- counties(state = "TX") %>%
+  filter(GEOID == "48113") %>%
+  st_transform(crs = 4269)
+
+## select relevant columns
+
+selected_AI <- select(ACCOUNT_INFO, ACCOUNT_NUM, DIVISION_CD, OWNER_NAME1, OWNER_ADDRESS_LINE1,
+                      OWNER_ADDRESS_LINE2, OWNER_ADDRESS_LINE2,OWNER_ADDRESS_LINE3,
+                      OWNER_ADDRESS_LINE4, STREET_NUM, FULL_STREET_NAME, BLDG_ID, 
+                      UNIT_ID, PROPERTY_CITY, PROPERTY_ZIPCODE, GIS_PARCEL_ID)
+selected_AAY <- select(ACCOUNT_APPRL_YEAR, ACCOUNT_NUM, IMPR_VAL, LAND_VAL, TOT_VAL,SPTD_CODE)
+selected_L <- select(LAND, ACCOUNT_NUM, ZONING, AREA_SIZE, AREA_UOM_DESC, COST_PER_UOM, VAL_AMT)
+selected_par <- select(parcels, GIS_PARCEL_ID, geometry)
+## join onto one table
+
+joined_df <- left_join(selected_AI, selected_AAY, by = "ACCOUNT_NUM")
+joined_df <- left_join(joined_df, selected_L, by = "ACCOUNT_NUM")
+
+## subset by vacant lots only
+
+vacant_df <- joined_df %>%
+  filter(SPTD_CODE %in% c("C11", "C12", "C13", "C14"))
+## filter out public and fbo land
+# data frame containing all possible owner names that fit necessary conditions
+
+owners <- c("DALLAS AREA RAPID TRANSIT", "DART AREA RAPID TRANSIT", "CITY OF", "COUNTY OF", "DALLAS AREA RAPID",
+            "DALLAS CITY OF", "DALLAS CITY", "DALLAS COUNTY", "DALLAS CTY", "DALLAS DIST OFFICE US",
+            "DALLAS HOUSING", "DALLAS INDEPENDENT SCHOOL DISTRICT", "DALLAS ISD", "DALLAS POLICE",
+            "DALLAS PUBLIC LIBRARY", "DALLAS TIF", "DALLAS TRANSIT SYSTEM", "DALLAS WIC",
+            "HOUSING AUTHORITY", "INDEPENDENT SCHOOL", " ISD", "TIF#", "TIF #", "PARKLAND",
+            "DALLAS COLLEGE", "Church", "Temple", "Mosque", "Methodist", "Diocese", "Baha'i",
+            "Iglesia", "Mesquita", "Sinagoga", "Pagoda", "Tewahedo", "Eritrean Orthodox",
+            "Islamico", "Islamica", "Judaica", "Judio", "Cristiana", "Cristiano",
+            "Vaticano", "Hare Krishna", "Budista", "Sion",
+            "Mision", "Evangelica", "Evangelico", "Capilla", "Latter-Day Saints", "LDS",
+            "Mormón", "Mormona", "Testigos de Jehová", "Catedral", "Monasterio",
+            "Convento", "Baptist", "Presbyterian", "Lutheran", "Pentecostal",
+            "Seventh-day Adventist", "Gurdwara", "Vihara", "Zen", "Dharma", "Sikh",
+            "Guru Nanak", "Rabbinical", "Kabbalah", "Torah", "Minyan", "Yeshiva",
+            "Madrasa", "Shia", "Sunni", "Ahmadiyya", "Orthodox", "Coptic", "Gnostic",
+            "Evangelical", "Bible", "Hope", "Ministry", "Ministries", "Jesus", "Christ ", " Christ",
+            "Quran", "Bhagavad Gita", "Vedas", "Tripitaka", "Guru Granth Sahib",
+            "Tanakh", "Talmud", "Zabur", "Injil", "Psalms", "Gospel", "Salvation", "Faith",
+            "Prayer", "Chapel", "Assembly", "God", "Allah", "Yahweh", "Jehovah", 
+            "Calvary", "Tabernacle", "Synod", "Reverend", "Pastor", "Imam", "Rabbi", 
+            "Priest", "Monk", "Shrine", "Sanctuary", "Covenant", "Spiritual",
+            "Divine", "Sacred", "Blessed", "Saint", "Apostolic", "Patriarchal", "Prophetic",
+            "Shepherd", "Disciple", "Fellowship", "Worship", "Kingdom", "Grace", "Mercy",
+            "Parish", "Diocese", "Archdiocese", "Chancery", "Congregation", "Vicar",
+            "Canon", "Choir", "Deacon", "Elder", "Sabbath", "Sermon", "Vespers", "Vestry",
+            "Litany", "Mass", "Veneration", "Zion", "Orthodoxy", "Reformation", "Crusade",
+            "Martyr", "Pilgrimage", "Sacrament", "Sanctification", "Theology", "Trinity",
+            "Virtue", "Zealot", "Devotion", "Piety", "Righteousness", "Asceticism",
+            "Monasticism", "Sect", "Denomination", "Doctrine", "Dogma", "Ecumenical",
+            "Heresy", "Schism", "Sectarian", "Canonization", "Deification", "Excommunication",
+            "Hagiography", "Iconoclasm", "Idolatry", "Inquisition", "Kerygma", "Mysticism",
+            "Papacy", "Pentecost", "Persecution", "Proselytism", "Revelation", "Revivalism",
+            "Sanctity", "Scripture", "Soteriology", "Supplication", "Transcendence",
+            "Vicarious", "Masjid")
+# index that will be used to conduct a partial string match against all possible owner names previously identified
+indexed_owners <- grepl(paste0(owners, collapse = "|"), vacant_df$OWNER_NAME1, ignore.case = TRUE)
+
+# Subset of all accounts that fit identified conditions
+public_fbo_accounts <- vacant_df[indexed_owners,]  
+
+
+
+## Create columns to identify FBOs and publicly owned land 
+
+# publicly owned land string
+
+pub_string <- c("DALLAS AREA RAPID TRANSIT", "DART AREA RAPID TRANSIT", "CITY OF", "COUNTY OF", "DALLAS AREA RAPID",
+                "DALLAS CITY OF", "DALLAS CITY", "DALLAS COUNTY", "DALLAS CTY", "DALLAS DIST OFFICE US",
+                "DALLAS HOUSING", "DALLAS INDEPENDENT SCHOOL DISTRICT", "DALLAS ISD", "DALLAS POLICE",
+                "DALLAS PUBLIC LIBRARY", "DALLAS TIF", "DALLAS TRANSIT SYSTEM", "DALLAS WIC",
+                "HOUSING AUTHORITY", "INDEPENDENT SCHOOL", " ISD", "TIF#", "TIF #", "PARKLAND",
+                "DALLAS COLLEGE")
+
+# Create a regular expression pattern from the list of strings
+pub_pattern <- paste0(pub_string, collapse = "|")
+
+# Create a new column public land and mark TRUE for matches
+public_fbo_accounts$PUBLIC_ACCOUNT <- grepl(pub_pattern, public_fbo_accounts$OWNER_NAME1, ignore.case = TRUE)
+
+# FBO owned land string
+
+fbo_string <- c("Church", "Temple", "Mosque", "Methodist", "Diocese", "Baha'i",
+                "Iglesia", "Mesquita", "Sinagoga", "Pagoda", "Tewahedo", "Eritrean Orthodox",
+                "Islamico", "Islamica", "Judaica", "Judio", "Cristiana", "Cristiano",
+                "Vaticano", "Hare Krishna", "Budista", "Sion",
+                "Mision", "Evangelica", "Evangelico", "Capilla", "Latter-Day Saints", "LDS",
+                "Mormón", "Mormona", "Testigos de Jehová", "Catedral", "Monasterio",
+                "Convento", "Baptist", "Presbyterian", "Lutheran", "Pentecostal",
+                "Seventh-day Adventist", "Gurdwara", "Vihara", "Zen", "Dharma", "Sikh",
+                "Guru Nanak", "Rabbinical", "Kabbalah", "Torah", "Minyan", "Yeshiva",
+                "Madrasa", "Shia", "Sunni", "Ahmadiyya", "Orthodox", "Coptic", "Gnostic",
+                "Evangelical", "Bible", "Hope", "Ministry", "Ministries", "Jesus", "Christ ", " Christ",
+                "Quran", "Bhagavad Gita", "Vedas", "Tripitaka", "Guru Granth Sahib",
+                "Tanakh", "Talmud", "Zabur", "Injil", "Psalms", "Gospel", "Salvation", "Faith",
+                "Prayer", "Chapel", "Assembly", "God", "Allah", "Yahweh", "Jehovah", 
+                "Calvary", "Tabernacle", "Synod", "Reverend", "Pastor", "Imam", "Rabbi", 
+                "Priest", "Monk", "Shrine", "Sanctuary", "Covenant", "Spiritual",
+                "Divine", "Sacred", "Blessed", "Saint", "Apostolic", "Patriarchal", "Prophetic",
+                "Shepherd", "Disciple", "Fellowship", "Worship", "Kingdom", "Grace", "Mercy",
+                "Parish", "Diocese", "Archdiocese", "Chancery", "Congregation", "Vicar",
+                "Canon", "Choir", "Deacon", "Elder", "Sabbath", "Sermon", "Vespers", "Vestry",
+                "Litany", "Mass", "Veneration", "Zion", "Orthodoxy", "Reformation", "Crusade",
+                "Martyr", "Pilgrimage", "Sacrament", "Sanctification", "Theology", "Trinity",
+                "Virtue", "Zealot", "Devotion", "Piety", "Righteousness", "Asceticism",
+                "Monasticism", "Sect", "Denomination", "Doctrine", "Dogma", "Ecumenical",
+                "Heresy", "Schism", "Sectarian", "Canonization", "Deification", "Excommunication",
+                "Hagiography", "Iconoclasm", "Idolatry", "Inquisition", "Kerygma", "Mysticism",
+                "Papacy", "Pentecost", "Persecution", "Proselytism", "Revelation", "Revivalism",
+                "Sanctity", "Scripture", "Soteriology", "Supplication", "Transcendence",
+                "Vicarious", "Masjid")
+
+# Create a regular expression pattern from the list of strings
+fbo_pattern <- paste0(fbo_string, collapse = "|")
+
+# Create a new column public land and mark TRUE for matches
+public_fbo_accounts$FBO_ACCOUNT <-grepl(fbo_pattern, public_fbo_accounts$OWNER_NAME1, ignore.case = TRUE)
+
+# excel analysis because I have to clean manually unfortunately 
+#write.csv(my_accounts, "myacc.csv")
+
+# exclude irrelevant owners
+
+exclude <- c("TORRES JESUS J", "TX TRINITY PROPERTY OWNER LP", "MARTINEZ J JESUS &", "CHAPEL HILL II PH I",
+             "GILCHRIST DIANE", "DANESHIANSANI ALI &", "VALLEJOLEON JESUS C &", "POLK CHRISTI E",
+             "CARRASCO JESUS", "WD TRINITY LLC", "ALBA JESUS &", "JOHNSON JOE AND GRACE", "GUERRA JESUS ALEJANDRO GARZA",
+             "DE LA IGLESIA DAMIAN &", "CHAPEL HILL ADDN", "MARQUEZ JESUS P & MARIA J", "ALVAREZCARREON JESUS &",
+             "GRAMERCY PARK HOMEOWNERS", "TOSCANO JESUS O & LEONOR", "TRINITY MILLS MIDWAY PTRS LTD",
+             "SANCHEZ JESUS MEDINA &", "DELVALLE JESUS ERNESTO &", "OLUSAKIN PASTOR SHADRACK &", "GRACE EARLIE",
+             "MARTINEZ JESUS CARDOZA", "CHAPEL HILL II PHASE II", "TRINITY MILLS OFFICE I OWNER LLC", 
+             "TRINITY MILLS MIDWAY", "SHEPHERD CHARLES SR & LINDA", "LOWEN TRINITY MILLS", "SHEPHERD CHARLIE W &",
+             "CASTILLO HECTOR JESUS &", "SERESEROZ JESUS P &", "RODRIGUEZ JESUS &", "LEAL JESUS JR & MARIA",
+             "LOPEZ CHRISTIAN J MONTERO", "HIPCHILDS INC", "TRINITY VAL SHP CTR", "LUNA JESUS",
+             "SECHRIST KATHRYN & JAMES D", "CAMPOS REINALDO DE JESUS", "GONZALES JESUS S &", "BERNARDO JOSE G & JESUS E",
+             "BRIONES JESUS", "REYNOLDS PEARL", "CHAVEZ JESUS C", "REYNOLDS GARY L", "BOTELLO JESUS",
+             "PALOMINO JOSE DEJESUS &", "ALTAMIRANO JESUS &", "ROMO JESUS A & IRMA A", "PALOMINO JOSE DEJESUS",
+             "BRYANT JUDY GRACE", "MEDINA LORENZO & MARIA DE JESUS", "TORRES JESUS J &", "MARTINEZ ROGELIO JESUS &",
+             "CARDIEL ISIDRO & JESUS", "ALMARAZ J JESUS MARTINEZ &", "WILLIAMS LIZERA PRIEST &", "ACOSTA JESUS JR &",
+             "TORRES JESUS &", "ORTIZ FELIPE DE JESUS & DERLYN PALMA", "BUSTILLOS JESUS M &", "DEJESUSLOPEZ JEHOVA",
+             "BALDREAS JESUS S &", "DELGADO JESUS RIVERA", "GASPAR PASTOR &", "LARA JESUS", "GOMEZ JOSE JESUS",
+             "SEGOVIA JESUS", "GODFREY FLOYD", "GRACE RICKY R &", "SEAGOVILLE SENIOR CITIZENS HOME INC",
+             "MASSEY C G & JOYCE", "TUCKER ANDREW RICHARD & CHRISTINE", "GANDY JUSTIN & CHRISTY", 
+             "KOHANSION STEVE TRUSTEE", "GODSPEED HOLDING LLC", "FERNANDEZ JESUS & SOCORRO", "ROJAS JESUS &",
+             "RAMIREZ JESUS & EMMA", "GONZALEZ ARCANGEL ZENI &", "DELAROSA CHRISTIAN D", "MASSEY MARK D",
+             "TRINITY RIVER AUTH OF TX", "RAMOS CHRISTIAN", "GILES JESUS &", "CALDERILLA JESUS", "RUIZ JESUS & MARIA",
+             "MOLINA MANUEL DEJESUS &", "MARTINEZ JESUS", "FUSION RECYCLING LLC", "LOREDO J JESUS",
+             "AYALA JOSE DEJESUS CARRERA &", "MARTINEZ ZENIDO", "TEMPLETON DOUG & CRISTY", "TERRAZAS JESUS",
+             "REYNOLDS PRESTO PRODUCTS INC", "DIRT MONKEY LLC", "PORTILLO BENJAMIN DEJESUS", "FLORES JESUS ALEXIS R",
+             "GAMEZ JESUS ALFONSO BALDERAS &", "LAMBERSON CAROL K CHRISTENSEN &", "TORRES JESUS F &",
+             "GODFREY LETITIA LASHAWN &", "MARTINEZ CHRISTIAN &", "ALVAREZ JESUS A &", "TRINITY POINT LLC",
+             "BETEL IGLESIA B", "TRINITY VIEW PROPERTIES LLC", "7812 GREAT TRINITY WAY LLC", "TRINITY CONVERGENCE LLC",
+             "BELTRAN JESUS J &", "MARRUFO JESUS MANUEL &", "BUILDERS OF HOPE COMMUNITY DEVELOPMENT",
+             "BALDERAS JESUS S &", "ZAVALA JESUSITA B", "BUSTILLOS JESUS M", "IGLESIAS RAUL & IDALIA M",
+             "MENDEZ EDWARD & GRACE", "TORRES JESUS & SILVIA", "ANYADIKE CHRISTIAN O", "RODRIGUEZ ZENON &",
+             "GUZMAN JESUS M", "BUILDERS OF HOPE COMMUNITY", "PEREZ ANGELA & JESUS", "MARTINEZ MARIA DE JESUS &",
+             "JESUS ANGEL PEREZ SALDIERNA", "MARTINEZ JOSE JESUS &", "REYNA JESUS S", "PARKER JAMESHIA",
+             "GANDHLE HOPE D SMITH", "SOTO JESUS R", "SOTO JESUS", "DIXON GRACE", "RODRIGUEZ JESUS J &",
+             "OZENDES DENNIS C & DEBBIE D", "BONILLA JESUS EFRAIN", "HETTIGODA THARINDU", "CALLAHAN TINA",
+             "MASSIE DERRICK & NICOLE", "MCDONALDS CORP", "LEAL JESUS &", "CANON USA INC",
+             "CARBAJAL JESUS &", "PIONEER FROZEN FOODS INC", "PEREZ JESUS H & DOLORES M", "GARZA JESUS D MORA",
+             "MUNOZ JESUS F &", "RODRIGUEZ JESUS & EMELIA", "FEISTHAMEL GRACE RENAY", "SANCHEZ JESUS GARCIA &",
+             "DIXON GRACE W", "LIEBEL SANDRA MONK", "ALGODON I LP", "NEGRETE JOSE DE JESUS",
+             "DONALDSON CHARLES A & LITA M", "AVILES ELISARDO DEJESUS", "R GARCIA J JESUS", "ZENDEJAS VICTOR",
+             "LIMONES JESUS &", "SERVIN JESUS BALDERAS", "W & S PRECISION FINISHING", "REYNOLDS MARY LOU",
+             "GABBYS SANCTUARY ARK INC", "ALLIANCE TRANSMISSIONS INC", "TAPIA JESUS GUTIERREZ &", "ANIMA JESUS J &",
+             "AGUINAGA CHRISTINE", "CALLAHAN DOROTHY", "CUEVAS JESUS BUENDIA", "SHEPHERD CHARLES & LINDA",
+             "TOSCANO JESUS OMAR", "CRAYTON CHRISTINE", "MORALES JESUS M", "CHRISTY DENNIS L", "SMITH CHRISTY D",
+             "BIBLE RUBY V", "GRACE KGN LLC", "CHAVARRIA CHRISTINE", "GODWIN EVAN", "VASQUEZ MARIA DEJESUS",
+             "GODAT DAVID", "MOALEU CHRISTOPHE", "GODWIN EVAN PHOTOGRAPHY", "HARRIS GRACE H", "ESPARZA JOSE DE JESUS",
+             "HERNANDEZ CHRISTIAN", "ENOGIERU GODWIN E", "WEBB CHAPEL CEMETERY ASSOC", "GRACEFUL ELEGANCE PROPERTY &",
+             "CAPENER CHRISTINE SUZANNE & BRIAN EDWARD", "TRINITY INDUSTRIAL PARK LP", "CITIZENS DEV CENTER",
+             "MULTIPLE STREAMS OF GRACE", "FIRST SACRAMENTO CAPITAL", "ZION CAPITAL MANAGEMENT LLC", "ESPINOZA JESUS A",
+             "CHURCHILL WALLACE W", "GODINEZ AMELIA", "TRINITY SHORES HOA", "DONALDSON VERTA M", "CORIA MARIA DE JESUS",
+             "REYNOLDS MARGARET JEAN", "SERRANO JESUS & MARIA G", "FIELDS CEMETERY UNINCORPATED",
+             "RODRIGUEZ JOSE DE JESUS &", "CHANG CHRISTINE", "RODRIGUEZ OSCAR JESUS", "SALCEDO JESUS",
+             "CARRASCO MARIA DEJESUS", "MCDONALDS USA LLC", "CHRISTIAN M P", "FIELDS BETTY LOU",
+             "TOWN EAST GUS THOMASSON JOINT VENTURE", "TRINITY SAVINGS & LOAN", "RIVAS JESUS & ELOIRA", "JIMENEZ JESUS",
+             "TORRES JESUS MARTINEZ &", "HERNANDEZ JESUS CARDONA", "BRYANT JUDY GRACE & ETAL", "ELDER CECIL E",
+             "GODOI GUSTAVO DE MELO", "OLIVARES JESUS ALBERTO &", "NASRALLAH ANTIONETTE", "TRINITY REAL EST HOLDINGS LLC",
+             "GARZA JESUS III &", "DEVALLE JESUS ERNESTO &", "TRINITY ICF MR INC", "GOLDSTEIN COOPER B", "BALDERAS JESUS",
+             "CONSTANCE TRINITY TRIANGLE LTD", "RYLIE FAITH FAMILY ACADEMY", "RODRIGUEZ JESUS", "OFORI JENISHIA",
+             "LOPEZ JESUS", "OLD MONK CORNER LLC", "MICROWAVE TRANSMISSION SYSTEMS INC", "ALIMAM ISAM M &",
+             "KULSTAD ERIK & CHRISTINE", "MECHE ZENO", "EDWARDS ALESHIA", "GONZALEZ JESUS ALEJANDRO",
+             "GRAMERCY PARK HOMEOWNERS ASSOC INC", "JACOB MATHEW & GRACE", "ALPHA BUILDS LLC", "CASTRO JOSE DEJESUS",
+             "ORTEGA JESUS V", "GAITHER RAY & GRACE MCCLELLAND", "FELDER JAMES", "ADAMS GODFREY A",
+             "REYNOLDS CARRIE LOUISE", "MEDELLIN PASTOR", "BOLAND GRACE ESTATE", "FORD MURPHY REVEREND",
+             "VILLANUEVA JESUS", "MORALES JESUS", "MACDONALDS REAL ESTATE CO", "TRINITY BAIT SHOP LP",
+             "TRINITY MEADOWS HOA ING", "MCDONALDS USA", "CHRIST GEORGE CHARLES", "SUFI HOLDINGS LLC",
+             "PERDUE CHRISTINE &", "CHURCHS FRIED CHICKEN INC", "USA TRINITY PPTIES INC", "ELIZABETH CHAPEL",
+             "PEREZ MARIA DEJESUS &", "ACEVEDO JESUS", "TRINITY SAVINGS", "TRINITY BASIN PREPARATORY",
+             "PUENTE HOPE M", "MCDONALDS CORPORATION", "WILKERSON LINDA C & RICHARD MARK GRACE",
+             "PARKSIDE AT TRINITY GREEN", "HOPES DOOR INC", "MEGATEL TRINITY MEADOWS LLC",
+             "TRINITY INVESTMENT PARTNERS LLC", "MCREF MFR 1 TRINITY LLC", "TRINITY JLC LTD",
+             "HAPPY STATE BANK DBA GOLDSTAR", "TRINITY DISTRICT PARTNERS", "RUIZ JESUS &", "GOLDSTEIN LARRY & DIANNE",
+             "NETINVERSION LLC", "RUIZ JESUS", "SINGLETON TRINITY GROVES LP", "RODRIGUEZLOPEZ ZENON", "TORRES JESUS F",
+             "YTEM JESUS B", "GOLDEN TRINITY LLC", "DAVIS MELZENA ESTATE", "COVENANT HOMES CONSTRUCTION &", "ZENA LWT LP",
+             "SCHMASSMANN MATHIAS K", "MCDONALDS REAL ESTATE CO", "HUIZAR MIKE S & CHRISTINE", "REYNOLDS GEORGE T III",
+             "ZENEZ LLC", "CHRISTIAN PHILLIPS PROPERTIES", "CHAVEZ JOSE DEJESUS", "MORA JESUS", "FLORES JESUS MIGUEL",
+             "PROCTOR JOHN & PROCTOR CHRISTINE", "TRINITY FOREST DALLAS HOA", "RUTLEDGE NANCY OLDS ET AL",
+             "IGLESIA CHRISTIANA BETHEL", "DHARMAGUNARATNE CHARAKA & TISSA", "COOKSONS TRANSMISSION CITY INC",
+             "JIMENEZ JESUS JUAREZ", "VAZQUEZ JESUS J", "TRINITY BASIN PREPARATORY INC", "BUILDERS OF HOPE CDC",
+             "SHIELDS PATRICIA KAY", "AGUILAR JESUS PENA JR", "MORALES JESUS MANUEL", "LECONTE CHRISTIANNE",
+             "AMADOR JESUS", "KINGDOM GROUP INVESTMENTS", "HIGHTOWER GRACE", "BLUE BELL FIELDS LP", "SHIELDS GERTRUDE J",
+             "TORRES JESUS", "EDWARDS SUCCESSION TRUST", "TRINITY CEMETERY ASSOC", "TRINITY INDUSTRIES INC",
+             "TORRES JESUS MARTIN", "FIELDS MARY L", "TRINITY MATERIALS INC", "TRINITY REAL ESTATE HOLDINGS",
+             "CARDENAS JESUS LOUIS", "SOTO JOSE DEJESUS ROCHA", "SHEPHERD PLACE HOMES INC", "SL3 TRINITY LP",
+             "HOPEWELL TX ROWLETT LP", "WILCOX MARQUISHIA &", "WW TRINITY OAKS LTD", "NEW HOPE CEMETERY ASSOCIATION",
+             "MARROQUIN JESUS M &", "TRINITY LAND & CATTLE CO", "RAMIREZ JESUS", "GODBOLT JAMES L JR", "SESSION VERA",
+             "LENZEN L G JR", "ZUNIGA DERMID DE JESUS", "4144 COCHRAN CHAPEL LLC", "SHIELDS JOE M",
+             "ESTRADA JOSE JESUS & YOLANDA", "RICHARDSON SUNNIE B", "TWO WORLDS GRAND PRAIRIE",
+             "HOPE DEVELOPMENT PARTNERS 2 LLC", "STANFIELD ZENDA TR", "A W BROWN FELLOWSHIP CHARTER SCHOOL",
+             "MASSOUMI PAULINE S", "RIZO JESUS", "TRINITY VALLEY","FELDER NEIL", "TRINITY RIVER AUTHORITY OF TX",
+             "TRINITY RIVER AUTHORITY OF TEX", "MERCADO JESUS SANCHEZ", "DIVINE ESTATES VENTURES LLC",
+             "SHRINERS HOSPITALS ET AL", "IG TRINITY LLC", "EAST LAKE PROFFESIONAL", "PUARTE JUAN JESUS MARTINEZ",
+             "JOSEY TRINITY MILLS JV 3", "TRINITY VLLY RCLMTN INC", "DALLAS STORAGE CONVERSION LLC",
+             "ELIZONDO JESUS & CLAUDIA", "GRIFFONE GRACELA S", "IGLESIAS ANA LIDIA",
+             "VELEZ JORGE GUEVARA & TERESA DE JESUS MARTINEZ", "REYNOLDS WAYNE", "TRINITY RIVER AUTHORITY OF TEXAS",
+             "TRINITY RIVER AUTHORITY OF", "TRINITY MILL HOLDINGS LLC", "NARVAEZ JESUS B &",
+             "VALDERRAMA JESUS & MARIA ROSARIO", "LIPT 3324 TRINITY BOULEVARD LLC", "COCHRAN CHAPEL CIR HMOWNR",
+             "ELIZONDO JESUS M & CLAUDIA L", "CALVO GODOFREDO", "BW COLLISION REPAIR INC", "TOWN EAST GUS THOMASSON",
+             "MARTINEZ JORGE JESUS", "CHERNOCK CHRISTIAN STEPHEN", "TRINITY REAL ESTATE HOLDINGS LLC", "HERNANDEZ JESUS",
+             "GRAND PRAIRIE TIF # 410 EXPANSION # 2", "RODRIGUEZ JESUS JR", "CHERNOCK CHRISTIAN", 
+             "TEMPLETON CRISTY MARIE", "SHIELDS CHARLES D", "SHIELDS LINNE", "KHIRALLAH RAPHAIL T &", 
+             "COVENANT HOMES CONSTRUCTION & RENOVATION LLC", "MCDONALDS REAL ESTATE COMPANY", "WESTERN EXTRUSIONS CORP",
+             "ADAME JESUS ALEJANDRO", "JAIMES JESUS JR", "LOZA JESUS A", "CHRISTIAN BOBBIE J", "MONTOYA CHRISTIAN A",
+             "GARCIA JESUS", "YAHWEH CONSTRUCTION", "TEMPLETON WILLIAM MURPHY", "ZENO WILLIAM", "TRINITY RIVER AUTHORITY",
+             "CHRISTOPHER", "CHRISTINA", "VISION", "PROFESSIONAL", "DIMENSION")
+
+# Create a regular expression pattern from the list of strings
+exclude_pattern <- paste0(exclude, collapse = "|")
+
+# Filter out rows where OWNER_NAME1 contains any of the words in the owners list
+cleaned_accounts <- public_fbo_accounts %>%
+  filter(!grepl(exclude_pattern, OWNER_NAME1, ignore.case = TRUE))
+
+# export to analyze in excel
+write.csv(cleaned_accounts, "cleaned_accounts.csv")
+
+## Find parcels with mutliple associated account numbers
+
+# group by GIS ID and count account numbers
+
+grouped_accounts <- cleaned_accounts %>%
+  group_by(GIS_PARCEL_ID) %>%
+  summarise(distinct_count = n_distinct(ACCOUNT_NUM))
+
+print(grouped_accounts)
+
+# find out which parcels have multiple accounts associated with them
+multi_accounts <- grouped_accounts %>%
+  filter(distinct_count > 1)
+
+print(multi_accounts)
+
+# extract those accounts onto a separate list
+multi_acc <- multi_accounts$GIS_PARCEL_ID
+
+print(multi_acc)
+
+# Create a new column in cleaned_accounts to mark GIS_PARCEL_IDs with multiple ACCOUNT_NUM as TRUE
+cleaned_accounts <- cleaned_accounts %>%
+  mutate(MULTIPLE_ACCOUNTS = GIS_PARCEL_ID %in% multi_acc)
+
+# Function to replace differing values with "multiple"
+condense_values <- function(x) {
+  if(length(unique(x)) > 1) {
+    return("Multiple")
+  } else {
+    return(unique(x))
+  }
+}
+
+
+# Split the data into two: one with multiple accounts and one without
+multiple_accounts_df <- cleaned_accounts %>%
+  filter(MULTIPLE_ACCOUNTS == TRUE)
+
+single_accounts_df <- cleaned_accounts %>%
+  filter(MULTIPLE_ACCOUNTS == FALSE)
+
+## ensuring vectors match in mutliple accounts ###
+# Ensure STREET_NUM is character type in multiple_accounts_df
+multiple_accounts_df <- multiple_accounts_df %>%
+  mutate(STREET_NUM = as.character(STREET_NUM))
+
+# Ensure PROPERTY_ZIPCODE is character type in multiple_accounts_df
+multiple_accounts_df <- multiple_accounts_df %>%
+  mutate(PROPERTY_ZIPCODE = as.character(PROPERTY_ZIPCODE))
+
+# Ensure LAND_VAL is character type in multiple_accounts_df
+multiple_accounts_df <- multiple_accounts_df %>%
+  mutate(LAND_VAL = as.character(LAND_VAL))
+
+# Ensure TOT_VAL is character type in multiple_accounts_df
+multiple_accounts_df <- multiple_accounts_df %>%
+  mutate(TOT_VAL = as.character(TOT_VAL))
+
+# Ensure AREA_SIZE is character type in multiple_accounts_df
+multiple_accounts_df <- multiple_accounts_df %>%
+  mutate(AREA_SIZE = as.character(AREA_SIZE))
+
+# Ensure COST_PER_UOM is character type in multiple_accounts_df
+multiple_accounts_df <- multiple_accounts_df %>%
+  mutate(COST_PER_UOM = as.character(COST_PER_UOM))
+
+# Ensure VAL_AMT is character type in multiple_accounts_df
+multiple_accounts_df <- multiple_accounts_df %>%
+  mutate(VAL_AMT = as.character(VAL_AMT))
+
+# Group the multiple accounts dataframe by GIS_PARCEL_ID and summarize
+condensed_multiple_accounts_df <- multiple_accounts_df %>%
+  group_by(GIS_PARCEL_ID) %>%
+  summarise(across(everything(), condense_values))
+
+## ensuring vectors match in single accounts ###
+# Ensure STREET_NUM is character type in single_accounts_df
+single_accounts_df <- single_accounts_df %>%
+  mutate(STREET_NUM = as.character(STREET_NUM))
+
+# Ensure PROPERTY_ZIPCODE is character type in single_accounts_df
+single_accounts_df <- single_accounts_df %>%
+  mutate(PROPERTY_ZIPCODE = as.character(PROPERTY_ZIPCODE))
+
+# Ensure LAND_VAL is character type in single_accounts_df
+single_accounts_df <- single_accounts_df %>%
+  mutate(LAND_VAL = as.character(LAND_VAL))
+
+# Ensure TOT_VAL is character type in single_accounts_df
+single_accounts_df <- single_accounts_df %>%
+  mutate(TOT_VAL = as.character(TOT_VAL))
+
+# Ensure AREA_SIZE is character type in single_accounts_df
+single_accounts_df <- single_accounts_df %>%
+  mutate(AREA_SIZE = as.character(AREA_SIZE))
+
+# Ensure COST_PER_UOM is character type in single_accounts_df
+single_accounts_df <- single_accounts_df %>%
+  mutate(COST_PER_UOM = as.character(COST_PER_UOM))
+
+# Ensure VAL_AMT is character type in single_accounts_df
+single_accounts_df <- single_accounts_df %>%
+  mutate(VAL_AMT = as.character(VAL_AMT))
+
+# Combine the single accounts and condensed multiple accounts dataframes
+final_df <- bind_rows(single_accounts_df, condensed_multiple_accounts_df)
+
+# Change owner name from "Multiple" to "Multiple Owners"
+
+final_df$OWNER_NAME1[final_df$OWNER_NAME1 == "Multiple"] <- "Multiple Owners"
+
+## Append to GIS Data
+
+vacant_sf <- inner_join(parcels, final_df) %>%
+  st_point_on_surface() %>%
+  st_transform(crs = 4269)
+
+# plot(vacant_sf["FBO_ACCOUNT"])
+
+## add school data
+
+# load school data 
+
+features_df <- read_csv("Data/features_df.csv") 
+
+
+# subset only school data
+
+schools_df <- subset(features_df, Type %in% c("Higher Education", "Primary Education", 
+                                              "Secondary Education","Primary/Secondary Education", 
+                                              "Private Education"))
+
+# Convert the school coordinates to an sf object
+
+schools_sf <- st_as_sf(schools_df, coords = c("X", "Y"), crs = 4269) #%>%
+ # .[dallas_county, ]
+plot(schools_sf["Zip"])
+# Buffer the school locations by 500 feet
+
+schools_buffer <- st_buffer(schools_sf, dist = 100)
+plot(schools_buffer["Zip"])
+# Check if each parcel is within the 500-foot buffer zone of any school
+
+school_final <- vacant_sf %>%
+  mutate(School_Flag = st_intersects(geometry, schools_buffer, sparse = FALSE) %>% rowSums() > 0)
+
+plot(school_final["School_Flag"])
+
+## add Power Plant data
+
+# subset only power plant data
+
+pp_df <- subset(features_df, Type %in% "Power Plant")
+
+# Convert the school coordinates to an sf object
+
+pp_sf <- st_as_sf(pp_df, coords = c("X", "Y"), crs = 4269) %>%
+  .[dallas_county, ]
+plot(pp_sf["Zip"])
+# Buffer the school locations by 500 feet
+
+pp_buffer <- st_buffer(pp_sf, dist = 100)
+plot(pp_buffer["Zip"])
+# Check if each parcel is within the 500-foot buffer zone of any school
+
+pp_final <- pp_sf %>%
+  mutate(Power_Plant_Flag = st_intersects(geometry, pp_buffer, sparse = FALSE) %>% rowSums() > 0)
+
+plot(pp_final["Power_Plant_Flag"])
