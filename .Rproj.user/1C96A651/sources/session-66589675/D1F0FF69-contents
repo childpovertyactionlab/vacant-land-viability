@@ -14,7 +14,7 @@ library(DT)
 library(writexl)
 
 ## set working directory
-setwd("C:/Users/theny/Documents/CPAL Summer 2024/Vacant Land Project")
+#setwd("C:/Users/theny/Documents/CPAL Summer 2024/Vacant Land Project")
 
 ## Load Data
 
