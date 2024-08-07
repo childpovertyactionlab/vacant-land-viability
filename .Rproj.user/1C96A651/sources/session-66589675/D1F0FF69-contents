@@ -14,7 +14,7 @@ library(DT)
 library(writexl)
 
 ## set working directory
-#setwd("C:/Users/theny/Documents/CPAL Summer 2024/Vacant Land Project")
+setwd("C:/Users/theny/Documents/CPAL Summer 2024/Vacant Land Project")
 
 ## Load Data
 
@@ -508,6 +508,34 @@ server <- function(input, output, session) {
         select(Location, "Average Lot Size (Acres)", "Number of Properties"),
       options = list(pageLength = 10),  
       rownames = FALSE
+    )
+  })
+  
+  # Save the current map bounds and zoom level
+  map_bounds <- input$map_bounds
+  map_zoom <- input$map_zoom
+  
+  # Update the map with the new markers
+  leafletProxy("map") %>%
+    clearMarkers() %>%
+    addCircleMarkers(
+      data = filteredData(),
+      radius = 12,
+      color = ~case_when(
+        FBO_ACCOUNT == TRUE ~ palette_cpal_main[5],
+        PUBLIC_ACCOUNT == TRUE ~ palette_cpal_main[1]
+      ),
+      weight = 1,
+      opacity = 1,
+      fillOpacity = 0.5,
+      clusterOptions = markerClusterOptions(maxClusterRadius = 50),
+      layerId = ~GIS_PARCEL_ID,
+      options = markerOptions(clickable = TRUE)
+    )
+  
+  # Restore the saved map view
+  if (!is.null(map_bounds) && !is.null(map_zoom)) {
+    leafletProxy("map") %>% setView(lng = mean(c(map_bounds$east, map_bounds$west)), lat = mean(c(map_bounds$north, map_bounds$south)), zoom = map_zoom)
     )
   })
 }
