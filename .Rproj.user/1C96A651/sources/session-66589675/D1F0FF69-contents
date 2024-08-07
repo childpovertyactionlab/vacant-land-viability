@@ -14,7 +14,7 @@ library(DT)
 library(writexl)
 
 ## set working directory
-#setwd("C:/Users/theny/Documents/CPAL Summer 2024/Vacant Land Project")
+setwd("C:/Users/theny/Documents/CPAL Summer 2024/Vacant Land Project")
 
 ## Load Data
 
@@ -483,7 +483,7 @@ server <- function(input, output, session) {
         average_area = mean(area, na.rm = TRUE)/ 43560,  # Convert to square miles
         unique_properties = n_distinct(ACCOUNT_NUM)  # Calculate number of unique properties
       ) %>%
-      arrange(desc(total_area)) %>%
+      arrange(desc(unique_properties),desc(total_area)) %>%
       ungroup()
     
     # Format total_area and average_area

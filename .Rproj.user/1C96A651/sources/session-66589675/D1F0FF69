@@ -3,7 +3,7 @@
     "path": "~/GitHub/vacant-land-viability/app.R",
     "project_path": "app.R",
     "type": "r_source",
-    "hash": "4105551250",
+    "hash": "331314871",
     "contents": "",
     "dirty": false,
     "created": 1722963487425.0,
@@ -12,15 +12,15 @@
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "337,63",
-        "scrollLine": "322"
+        "cursorPosition": "17,0",
+        "scrollLine": "0"
     },
     "folds": "",
-    "lastKnownWriteTime": 1722976808,
+    "lastKnownWriteTime": 1723041085,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1722976808756,
+    "last_content_update": 1723041085788,
     "read_only": false,
     "read_only_alternatives": []
 }

@@ -27,7 +27,7 @@ selected_tract <- tracts(state = "TX", county = "Dallas")%>%
   rename(tract_name = NAMELSAD) %>%
   select(geometry, tract_ID, tract_name)
 selected_council <- st_read('data/Council_Boundaries.geojson') %>% 
-  select(COUNCIL, COUNCILPER, geometry) %>%
+  select(COUNCIL, geometry) %>%
   st_transform(crs = 4269)
 
 ## join onto one table
@@ -376,6 +376,6 @@ vacant_points <- st_transform(vacant_points, crs = 4269)
 
 # write vacant_sf into its own data file 
 
-#st_write(vacant_points, "Data/Processed Data/Processed Vacant Land Parcels.geojson", delete_dsn = TRUE)
+st_write(vacant_points, "Data/Processed Data/Processed Vacant Land Parcels.geojson", delete_dsn = TRUE)
 
 

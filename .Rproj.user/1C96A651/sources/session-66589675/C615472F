@@ -3,7 +3,7 @@
     "path": "~/GitHub/vacant-land-viability/scripts/Features and Buckets Script.R",
     "project_path": "scripts/Features and Buckets Script.R",
     "type": "r_source",
-    "hash": "2139112697",
+    "hash": "0",
     "contents": "",
     "dirty": false,
     "created": 1722963635887.0,
@@ -12,7 +12,7 @@
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "21,43",
+        "cursorPosition": "16,26",
         "scrollLine": "0"
     },
     "folds": "",
