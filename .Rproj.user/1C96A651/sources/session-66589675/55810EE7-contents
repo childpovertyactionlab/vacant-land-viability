@@ -480,7 +480,7 @@ server <- function(input, output, session) {
       group_by(!!sym(group_var)) %>%
       summarize(
         total_area = sum(area, na.rm = TRUE),
-        average_area = mean(area, na.rm = TRUE)/ 43560,  # Convert to square miles
+        average_area = mean(area, na.rm = TRUE)/ 43560,  # Convert to square acres
         unique_properties = n_distinct(ACCOUNT_NUM)  # Calculate number of unique properties
       ) %>%
       arrange(desc(unique_properties),desc(total_area)) %>%
